@@ -50,58 +50,50 @@ module.exports = async function handleScheduleButton(interaction) {
       });
     }
 
-    editSession.set(interaction.user.id, async (message) => {
+    editSession.set(interaction.user.id, {
+      index: Number(index),
+      handler: async (message) => {
 
       if (message.content.toLowerCase() === '!cancel') {
         editSession.clear(message.author.id);
         await message.reply('Edit cancelled.');
         return;
       }
-
-      const content = message.content.split(',');
-      const name = content[0]?.trim();
-      const dateString = content[1]?.trim();
-
-      if (!name || !dateString) {
+      const parts = message.content.split(',');
+      if (parts.length < 2) {
         await message.reply(
-          'Format invalid.\nUse:\n`<name>, <DD/MM/YYYY HH:mm>`\n\nOr type `!cancel`'
+          'Format invalid.\nUse:\n`<name>, <DD/MM/YYYY HH:mm>`'
         );
         return;
       }
-
+      const name = parts[0].trim();
+      const dateString = parts.slice(1).join(',').trim();
       const match = dateString.match(
         /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/
       );
-
       if (!match) {
-        await message.reply('Date format invalid. Or type `!cancel`');
+        await message.reply('Date format invalid.');
         return;
       }
-
       const [, d, m, y, h, min] = match;
       const date = new Date(`${y}-${m}-${d}T${h}:${min}:00`);
-
       if (isNaN(date)) {
-        await message.reply('Invalid date. Or type `!cancel`');
+        await message.reply('Invalid date.');
         return;
       }
-
+      const session = editSession.get(message.author.id);
       const schedules = store.getAll(message.guildId);
-      const sched = schedules[index];
-
+      const sched = schedules[session.index];
       if (!sched) {
         await message.reply('Schedule not found.');
         editSession.clear(message.author.id);
         return;
       }
-
       sched.name = name;
       sched.timestamp = Math.floor(date.getTime() / 1000);
-
       store.update(message.guildId, schedules);
       editSession.clear(message.author.id);
-
-      await message.reply('Schedule updated.');
+      await message.reply('Schedule updated.');}
     });
 
     const row = new ActionRowBuilder().addComponents(
