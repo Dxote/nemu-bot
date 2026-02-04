@@ -2,7 +2,8 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  MessageFlags
 } = require('discord.js');
 const store = require('../../services/scheduleStore');
 const editSession = require('../../services/editSession');
@@ -14,14 +15,16 @@ function hasAdminRole(interaction) {
 }
 
 module.exports = async function handleScheduleButton(interaction) {
-  const [, action, index] = interaction.customId.split(':');
+  const parts = interaction.customId.split(':');
+  const action = parts[1];
+  const index = parts[2];
   const schedules = store.getAll(interaction.guildId);
   const sched = schedules[Number(index)];
 
   if (!sched) {
     return interaction.reply({
       content: 'Schedule not found.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -38,7 +41,7 @@ module.exports = async function handleScheduleButton(interaction) {
 
     return interaction.reply({
       embeds: [embed],
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -46,7 +49,7 @@ module.exports = async function handleScheduleButton(interaction) {
     if (!isAdmin) {
       return interaction.reply({
         content: 'You do not have permission to edit schedules.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -82,8 +85,12 @@ module.exports = async function handleScheduleButton(interaction) {
         return;
       }
       const session = editSession.get(message.author.id);
-      const schedules = store.getAll(message.guildId);
+        if (!session) {
+          await message.reply('Edit session expired.');
+          return;
+        }
       const sched = schedules[session.index];
+      const schedules = store.getAll(message.guildId);
       if (!sched) {
         await message.reply('Schedule not found.');
         editSession.clear(message.author.id);
@@ -110,7 +117,7 @@ module.exports = async function handleScheduleButton(interaction) {
         '`<new name>, <DD/MM/YYYY HH:mm>`\n\n' +
         'Or press cancel button.',
       components: [row],
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -119,7 +126,7 @@ module.exports = async function handleScheduleButton(interaction) {
 
     return interaction.reply({
       content: 'Edit cancelled.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -127,7 +134,7 @@ module.exports = async function handleScheduleButton(interaction) {
     if (!isAdmin) {
       return interaction.reply({
         content: 'You do not have permission to delete schedules.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -153,7 +160,7 @@ module.exports = async function handleScheduleButton(interaction) {
     return interaction.reply({
       embeds: [embed],
       components: [row],
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -161,7 +168,7 @@ module.exports = async function handleScheduleButton(interaction) {
     if (!isAdmin) {
       return interaction.reply({
         content: 'You are not allowed to perform this action.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
 

@@ -1,6 +1,5 @@
 const handleSchedButton = require('./buttons/schedule');
 const handleCommonButton = require('./buttons/common');
-const editSession = require('../services/editSession');
 
 module.exports = {
   async handle(interaction) {
