@@ -57,54 +57,58 @@ module.exports = async function handleScheduleButton(interaction) {
       });
     }
 
-    editSession.set(interaction.user.id, {
-      index: Number(index),
-      handler: async (message) => {
+    editSession.set(interaction.user.id, async (message) => {
 
       if (message.content.toLowerCase() === '!cancel') {
         editSession.clear(message.author.id);
         await message.reply('Edit cancelled.');
         return;
       }
-      const parts = message.content.split(',');
-      if (parts.length < 2) {
+
+      const content = message.content.split(',');
+      const name = content[0]?.trim();
+      const dateString = content[1]?.trim();
+
+      if (!name || !dateString) {
         await message.reply(
-          'Format invalid.\nUse:\n`<name>, <DD/MM/YYYY HH:mm>`'
+          'Format invalid.\nUse:\n`<name>, <DD/MM/YYYY HH:mm>`\n\nOr type `!cancel`'
         );
         return;
       }
-      const name = parts[0].trim();
-      const dateString = parts.slice(1).join(',').trim();
+
       const match = dateString.match(
         /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/
       );
+
       if (!match) {
-        await message.reply('Date format invalid.');
+        await message.reply('Date format invalid. Or type `!cancel`');
         return;
       }
+
       const [, d, m, y, h, min] = match;
       const date = new Date(`${y}-${m}-${d}T${h}:${min}:00`);
+
       if (isNaN(date)) {
-        await message.reply('Invalid date.');
+        await message.reply('Invalid date. Or type `!cancel`');
         return;
       }
-      const session = editSession.get(message.author.id);
-        if (!session) {
-          await message.reply('Edit session expired.');
-          return;
-        }
-      const sched = schedules[session.index];
+
       const schedules = store.getAll(message.guildId);
+      const sched = schedules[index];
+
       if (!sched) {
         await message.reply('Schedule not found.');
         editSession.clear(message.author.id);
         return;
       }
+
       sched.name = name;
       sched.timestamp = Math.floor(date.getTime() / 1000);
+
       store.update(message.guildId, schedules);
       editSession.clear(message.author.id);
-      await message.reply('Schedule updated.');}
+
+      await message.reply('Schedule updated.');
     });
 
     const row = new ActionRowBuilder().addComponents(
@@ -121,7 +125,7 @@ module.exports = async function handleScheduleButton(interaction) {
         '`<new name>, <DD/MM/YYYY HH:mm>`\n\n' +
         'Or press cancel button.',
       components: [row],
-      flags: MessageFlags.Ephemeral
+      ephemeral: true
     });
   }
 
@@ -130,7 +134,7 @@ module.exports = async function handleScheduleButton(interaction) {
 
     return interaction.reply({
       content: 'Edit cancelled.',
-      flags: MessageFlags.Ephemeral
+      ephemeral: true
     });
   }
 
