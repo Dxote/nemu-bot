@@ -1,5 +1,11 @@
 const hasAdminRole = require('../utils/hasAdminRole');
 const store = require('../services/scheduleStore');
+const tzStore = require('../services/userTimezoneStore');
+const { resolve } = require('../services/timezoneResolver');
+const { DateTime } = require('luxon');
+const { resolvePriority } = require('../services/timezonePriority');
+const { parseNatural } = require('../services/naturalParser');
+
 const {
   EmbedBuilder,
   ActionRowBuilder,
@@ -37,26 +43,51 @@ module.exports = {
 };
 
 function addSchedule(message, args) {
+
   const content = args.join(' ').split(',');
+
   const name = content[0]?.trim();
-  const dateString = content[1]?.trim();
+  let dateString = content[1]?.trim();
+  let tzInput = content[2]?.trim();
 
   if (!name || !dateString) {
     return message.reply(
-      'Usage: `!sched add <name>, <DD/MM/YYYY HH:mm>`'
+      'Usage: `!sched add <name>, <date>, <timezone>`'
     );
   }
 
-  const match = dateString.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/);
-  if (!match) {
-    return message.reply('Invalid date format.');
+  const timezone = resolvePriority({
+    tzInput,
+    userId: message.author.id,
+    guildId: message.guildId,
+    locale: message.guild?.preferredLocale
+  });
+
+  if (!timezone) {
+    return message.reply(
+      'Timezone tidak ditemukan.\n' +
+      'Contoh:\n' +
+      '`!sched add Event, tomorrow 7pm GMT+7`\n' +
+      '`!set timezone Asia/Jakarta`'
+    );
   }
 
-  const [, d, m, y, h, min] = match;
-  const date = new Date(`${y}-${m}-${d}T${h}:${min}:00`);
-  if (isNaN(date)) return message.reply('❌ Invalid date.');
+  let dt = DateTime.fromFormat(
+    dateString,
+    'dd/MM/yyyy HH:mm',
+    { zone: timezone }
+  );
 
-  const timestamp = Math.floor(date.getTime() / 1000);
+  if (!dt.isValid) {
+    dt = parseNatural(dateString, timezone);
+  }
+
+  if (!dt || !dt.isValid) {
+    return message.reply('Invalid date.');
+  }
+
+  const timestamp = Math.floor(dt.toSeconds());
+
   const entry = store.add(message.guildId, { name, timestamp });
 
   const embed = new EmbedBuilder()

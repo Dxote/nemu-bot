@@ -7,6 +7,10 @@ const {
 } = require('discord.js');
 const store = require('../../services/scheduleStore');
 const editSession = require('../../services/editSession');
+const { resolvePriority } = require('../services/timezonePriority');
+const { parseNatural } = require('../services/naturalParser');
+const { DateTime } = require('luxon');
+
 
 function hasAdminRole(interaction) {
   const roleId = process.env.ADMIN_ROLE_ID;
@@ -15,9 +19,17 @@ function hasAdminRole(interaction) {
 }
 
 module.exports = async function handleScheduleButton(interaction) {
-  const parts = interaction.customId.split(':');
-  const action = parts[1];
-  const index = Number(parts[2]);
+  const [, action, indexRaw] = interaction.customId.split(':');
+  const index = indexRaw ? Number(indexRaw) : null;
+
+  if (action !== 'cancelEdit') {
+    if (index === null || Number.isNaN(index)) {
+      return interaction.reply({
+        content: 'Invalid schedule index.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } 
 
   const isAdmin = hasAdminRole(interaction);
 
@@ -75,31 +87,48 @@ module.exports = async function handleScheduleButton(interaction) {
         }
 
         const parts = message.content.split(',');
+
         if (parts.length < 2) {
-          await message.reply('Format invalid.\nUse:\n`<name>, <DD/MM/YYYY HH:mm>`');
+          await message.reply(
+            'Format invalid.\nUse:\n`<name>, <date>, <timezone optional>`'
+          );
           return;
         }
 
         const name = parts[0].trim();
-        const dateString = parts.slice(1).join(',').trim();
+        const dateString = parts[1]?.trim();
+        const tzInput = parts[2]?.trim();
 
-        const match = dateString.match(
-          /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/
-        );
+        const timezone = resolvePriority({
+          tzInput,
+          userId: message.author.id,
+          guildId: message.guildId,
+          locale: message.guild?.preferredLocale
+        });
 
-        if (!match) {
-          await message.reply('Date format invalid.');
+        if (!timezone) {
+          await message.reply('Timezone not found.');
           return;
         }
 
-        const [, d, m, y, h, min] = match;
-        const date = new Date(`${y}-${m}-${d}T${h}:${min}:00`);
+        let dt = DateTime.fromFormat(
+          dateString,
+          'dd/MM/yyyy HH:mm',
+          { zone: timezone }
+        );
 
-        if (isNaN(date)) {
+        if (!dt.isValid) {
+          dt = parseNatural(dateString, timezone);
+        }
+
+        if (!dt || !dt.isValid) {
           await message.reply('Invalid date.');
           return;
         }
 
+        const timestamp = Math.floor(dt.toSeconds());
+
+        // session safety
         const session = editSession.get(message.author.id);
         if (!session) {
           await message.reply('Edit session expired.');
@@ -107,16 +136,16 @@ module.exports = async function handleScheduleButton(interaction) {
         }
 
         const schedules = store.getAll(message.guildId);
-        const sched = schedules[session.index];
+        const targetSchedule = schedules[session.index];
 
-        if (!sched) {
+        if (!targetSchedule) {
           await message.reply('Schedule not found.');
           editSession.clear(message.author.id);
           return;
         }
 
-        sched.name = name;
-        sched.timestamp = Math.floor(date.getTime() / 1000);
+        targetSchedule.name = name;
+        targetSchedule.timestamp = timestamp;
 
         store.update(message.guildId, schedules);
         editSession.clear(message.author.id);

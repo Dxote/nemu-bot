@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+
 const DATA_DIR = path.join(__dirname, '../data');
 
 function ensureDir() {
@@ -25,13 +26,14 @@ function save(guildId, data) {
   fs.writeFileSync(getFile(guildId), JSON.stringify(data, null, 2));
 }
 
-function add(guildId, { name, timestamp }) {
+function add(guildId, { name, timestamp, recurring }) {
   const schedules = load(guildId);
 
   const entry = {
     id: crypto.randomUUID(),
     name,
     timestamp,
+    recurring: recurring | null,
     createdAt: Date.now(),
     reminded: {
         h72: false,
@@ -75,6 +77,8 @@ function getAllGuildSchedules() {
     schedules: JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8'))
   }));
 }
+
+
 
 module.exports = {
   add,
