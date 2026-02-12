@@ -20,12 +20,13 @@ const client = new Client({
     const commandFiles = fs
     .readdirSync(path.join(__dirname, 'commands'))
     .filter(file => file.endsWith('.js'));
+
     for (const file of commandFiles) {
     const command = require(`./commands/${file}`);
     client.commands.set(command.name, command);
     }
 
-    client.once('clientReady', () => {
+    client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
     startReminder(client);
     });
@@ -34,7 +35,7 @@ const client = new Client({
     if (message.author.bot) return;
 
     const session = editSession.get(message.author.id);
-    if (session?.handler) {
+    if (session) {
         try {
         await session.handler(message);
         } catch (err) {
@@ -60,19 +61,8 @@ const client = new Client({
     }
     });
 
-    client.on('interactionCreate', async (interaction) => {
-    try {
-        await buttons.handle(interaction);
-      } catch (err) {
-        console.error(err);
-      
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({
-            content: 'Interaction failed.',
-            ephemeral: true
-          });
-        }
-      }
+    client.on('interactionCreate', async interaction => {
+        buttons.handle(interaction);
     });
 
     client.login(process.env.DISCORD_TOKEN);
