@@ -1,8 +1,8 @@
 const sessions = new Map();
 
 module.exports = {
-  set(userId, session) {
-    sessions.set(userId, session);
+  set(userId, handler) {
+    sessions.set(userId, { handler });
   },
 
   get(userId) {
