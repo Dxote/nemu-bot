@@ -7,8 +7,8 @@ const {
 } = require('discord.js');
 const store = require('../../services/scheduleStore');
 const editSession = require('../../services/editSession');
-const { resolvePriority } = require('../services/timezonePriority');
-const { parseNatural } = require('../services/naturalParser');
+const { resolvePriority } = require('../../services/timezonePriority');
+const { parseNatural } = require('../../services/naturalParser');
 const { DateTime } = require('luxon');
 
 
